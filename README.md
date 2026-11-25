@@ -18,10 +18,10 @@
 
 ## 安装
 
-在 magpie 的插件页添加，或者：
+在 magpie 的插件页添加 `github:zwenooo/magpie-codez`，或者：
 
 ```sh
-magpie plugin add github:zwenooo/magpie-plugins#codez-v0.1.0
+magpie plugin add github:zwenooo/magpie-codez
 magpie plugin login codez        # 粘贴 API 密钥；每把密钥登录一次
 ```
 
@@ -46,3 +46,19 @@ magpie plugin login codez        # 粘贴 API 密钥；每把密钥登录一次
 bun test
 magpie plugin add <本文件夹>
 ```
+
+## 版本
+
+`main` 分支就是最新版。按上面的地址装（不带 `#…`），magpie 会跟着 `main`，有新提交时
+提示更新。要固定某个版本，用 `github:zwenooo/magpie-codez#v<版本>`。
+
+发布新版本：改好、提交后，把 `package.json` 的 version 提上去，提交，再
+`git tag v<版本> && git push origin main v<版本>`。
+
+这个插件原先在 [zwenooo/magpie-plugins](https://github.com/zwenooo/magpie-plugins)
+的 `packages/codez` 里（最后一版是 tag `codez-v0.1.0`），2026-11-25 拆成了独立仓库。
+那边还有 skill 和这些插件的来龙去脉（`docs/roadmap.md`）。
+
+## 许可
+
+MIT
