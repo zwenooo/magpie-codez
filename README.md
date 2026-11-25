@@ -55,7 +55,7 @@ magpie plugin add <本文件夹>
 发布新版本：改好、提交后，把 `package.json` 的 version 提上去，提交，再
 `git tag v<版本> && git push origin main v<版本>`。
 
-这个插件原先在 [zwenooo/magpie-plugins](https://github.com/zwenooo/magpie-plugins)
+这个插件原先在 [zwenooo/magpie-plugins](https://github.com/zwenooo/magpie-home)（现已改名为 magpie-home）
 的 `packages/codez` 里（最后一版是 tag `codez-v0.1.0`），2026-11-25 拆成了独立仓库。
 那边还有 skill 和这些插件的来龙去脉（`docs/roadmap.md`）。
 
