@@ -18,12 +18,14 @@
 
 ## 安装
 
-在 magpie 的插件页添加 `github:zwenooo/magpie-codez`，或者：
+在 magpie 的插件页搜索 CodeZ 安装（npm 包 `magpie-plugin-codez`），或者：
 
 ```sh
-magpie plugin add github:zwenooo/magpie-codez
+magpie plugin add magpie-plugin-codez
 magpie plugin login codez        # 粘贴 API 密钥；每把密钥登录一次
 ```
+
+也可以直接从 GitHub 装：`magpie plugin add github:zwenooo/magpie-codez`。
 
 密钥在 <https://codezsy.com/console/token>。
 
@@ -49,11 +51,12 @@ magpie plugin add <本文件夹>
 
 ## 版本
 
-`main` 分支就是最新版。按上面的地址装（不带 `#…`），magpie 会跟着 `main`，有新提交时
-提示更新。要固定某个版本，用 `github:zwenooo/magpie-codez#v<版本>`。
+从 npm 装的跟着 npm 上的 `latest`。从 GitHub 装（不带 `#…`）的跟着 `main`，有新提交时
+magpie 提示更新；要固定某个版本，用 `github:zwenooo/magpie-codez#v<版本>`。
 
 发布新版本：改好、提交后，把 `package.json` 的 version 提上去，提交，再
-`git tag v<版本> && git push origin main v<版本>`。
+`git tag v<版本> && git push origin main v<版本>`，最后 `npm publish`。npm 和 tag 的版本
+要一致。
 
 这个插件原先在 [zwenooo/magpie-plugins](https://github.com/zwenooo/magpie-home)（现已改名为 magpie-home）
 的 `packages/codez` 里（最后一版是 tag `codez-v0.1.0`），2026-11-25 拆成了独立仓库。
