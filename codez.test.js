@@ -118,7 +118,7 @@ describe("where a key's requests go", () => {
 
   test("each account goes where it chose, an older one to the default", () => {
     expect(baseOf({ type: "api", key: "k" })).toBe(BASE)
-    expect(baseOf({ type: "api", key: "k", metadata: { base: BASES[1].value } })).toBe("https://api-s.codezsy.com/v1")
+    expect(baseOf({ type: "api", key: "k", metadata: { base: BASES[2].value } })).toBe("https://api-s.codezsy.com/v1")
     expect(baseOf({ type: "api", key: "k", metadata: { base: "custom", customBase: "https://my.relay.dev/" } })).toBe("https://my.relay.dev/v1")
     expect(baseOf({ type: "api", key: "k", metadata: { base: "custom", customBase: "nonsense" } })).toBe(BASE)
   })
@@ -128,7 +128,8 @@ describe("where a key's requests go", () => {
     const [pick, typed] = m.prompts
     expect(m.authorize).toBeUndefined() // magpie asks the key and keeps the answers
     expect(pick.options.map((o) => o.value)).toEqual([...BASES.map((b) => b.value), "custom"])
-    expect(pick.options[0].value).toBe(BASE)
+    expect(BASES.map((b) => b.label)).toEqual(["api-cfmax.codezsy.com", "codezsy.com", "api-s.codezsy.com"])
+    for (const o of pick.options) expect(o.hint && o.hints.zh).toBeTruthy()
     expect(typed.when).toEqual({ key: "base", op: "eq", value: "custom" })
     expect(typed.validate("https://ok.dev/v1")).toBeUndefined()
     expect(typed.validate("nope")).toContain("http")

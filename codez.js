@@ -22,13 +22,29 @@ export const BASE = "https://api.codezsy.com/v1"
 export const SITE = "https://codezsy.com"
 export const KEYS = "https://codezsy.com/console/token"
 
-// CodeZ's addresses, all in front of the same CodeZ: api.* straight to it,
-// api-s.* through relays on several nodes; zwenooo.link the same again
+// CodeZ's addresses offered at sign-in, all in front of the same CodeZ (a
+// key works on each). The hint is shown beside the choice on the command
+// line and when the pointer rests on it in the window. BASE stays where an
+// account signed in before there was a choice goes.
 export const BASES = [
-  { value: BASE, label: "api.codezsy.com", hint: "Direct (default)", hintZh: "直连（默认）" },
-  { value: "https://api-s.codezsy.com/v1", label: "api-s.codezsy.com", hint: "Through relays on several nodes", hintZh: "多节点中转" },
-  { value: "https://api.zwenooo.link/v1", label: "api.zwenooo.link", hint: "Spare domain, direct", hintZh: "备用域名，直连" },
-  { value: "https://api-s.zwenooo.link/v1", label: "api-s.zwenooo.link", hint: "Spare domain, through relays", hintZh: "备用域名，多节点中转" },
+  {
+    value: "https://api-cfmax.codezsy.com/v1",
+    label: "api-cfmax.codezsy.com",
+    hint: "Cloudflare's best-picked nodes, a steady route. Through Cloudflare: a request whose answer hasn't started within 100 s is cut (524); streamed ones start at once.",
+    hintZh: "Cloudflare 优选节点，线路稳定。经过 Cloudflare：100 秒内还没开始回应的请求会被断开（524），流式请求一开始就有回应，不受影响。",
+  },
+  {
+    value: "https://codezsy.com/v1",
+    label: "codezsy.com",
+    hint: "The main site's own address, the one its console is on. Through Cloudflare, with the same 100 s limit.",
+    hintZh: "主站域名，和网站、控制台同一个地址。经过 Cloudflare，同样有 100 秒的限制。",
+  },
+  {
+    value: "https://api-s.codezsy.com/v1",
+    label: "api-s.codezsy.com",
+    hint: "Relays on several servers, not through Cloudflare: no 100 s limit, for long requests that don't stream.",
+    hintZh: "多台服务器中转，不经过 Cloudflare，没有 100 秒的限制，适合不走流式的长请求。",
+  },
 ]
 const CUSTOM = "custom"
 
@@ -168,7 +184,7 @@ export function createPlugin({ fetchImpl = globalThis.fetch } = {}) {
               messages: { zh: "这把密钥的请求发到哪个 CodeZ 地址？" },
               options: [
                 ...BASES.map((b) => ({ label: b.label, value: b.value, hint: b.hint, hints: { zh: b.hintZh } })),
-                { label: "Other address…", labels: { zh: "自定义地址…" }, value: CUSTOM, hint: "Type it next", hints: { zh: "下一步填写" } },
+                { label: "Other address…", labels: { zh: "自定义地址…" }, value: CUSTOM, hint: "Type it next: its /v1 base, or only the host", hints: { zh: "下一步填写：/v1 那一级，只填域名会自动补 /v1" } },
               ],
             },
             {
