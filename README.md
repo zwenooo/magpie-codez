@@ -55,8 +55,16 @@ magpie plugin add <本文件夹>
 magpie 提示更新；要固定某个版本，用 `github:zwenooo/magpie-codez#v<版本>`。
 
 发布新版本：改好、提交后，把 `package.json` 的 version 提上去，提交，再
-`git tag v<版本> && git push origin main v<版本>`，最后 `npm publish`。npm 和 tag 的版本
-要一致。
+`git tag v<版本> && git push origin main v<版本>`，最后发到 npm（npm 和 tag 的版本要一致）：
+
+```powershell
+$env:Path = "D:\DevTools\nodejs\node-v24.22.1-win-x64;$env:Path"   # npm 12 要 Node 22.22+ / 24
+npx -y npm@latest stage publish --registry=https://registry.npmjs.org/ --access public
+```
+
+然后在 <https://www.npmjs.com/settings/zwn2027/staged-packages> 点 Approve，用安全密钥
+（Windows Hello）确认，版本才会公开。npm 账号 `zwn2027` 的 2FA 只有安全密钥：直接
+`npm publish` 要在 5 分钟内过网页验证，老版 npm（10.x）只会要 6 位码，所以用暂存发布。
 
 这个插件原先在 [zwenooo/magpie-plugins](https://github.com/zwenooo/magpie-home)（现已改名为 magpie-home）
 的 `packages/codez` 里（最后一版是 tag `codez-v0.1.0`），2026-11-25 拆成了独立仓库。
