@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { apisOf, BASE, createPlugin, openAIModel, readsImages, rowsOf } from "./codez.js"
+import { apisOf, BASE, BASES, baseOf, createPlugin, normalBase, openAIModel, readsImages, rowsOf } from "./codez.js"
 import * as entry from "./index.js"
 
 // Entries as CodeZ's /v1/models answered on 2026-11-25, one per key group.
@@ -104,5 +104,44 @@ describe("the plugin's hooks", () => {
     expect(await p.auth.usage(async () => ({ type: "api", key: "sk-k" }))).toMatchObject({ signIn: "expired" })
     const ok = createPlugin({ fetchImpl: fakeFetch(() => json(200, LIST)).f })
     expect((await ok.auth.usage(async () => ({ type: "api", key: "sk-k" }))).plan).toContain("codezsy.com")
+  })
+})
+
+describe("where a key's requests go", () => {
+  test("a typed address is taken as requests take it", () => {
+    expect(normalBase(" https://api.codezsy.com/v1/ ")).toBe("https://api.codezsy.com/v1")
+    expect(normalBase("https://relay.example.com")).toBe("https://relay.example.com/v1")
+    expect(normalBase("http://127.0.0.1:3000/")).toBe("http://127.0.0.1:3000/v1")
+    expect(normalBase("https://x.example.com/openai/v1")).toBe("https://x.example.com/openai/v1")
+    for (const bad of ["", "api.codezsy.com", "ftp://x.com", "https://x.com/v1?a=1", "https://u:p@x.com/v1", null]) expect(normalBase(bad)).toBe(null)
+  })
+
+  test("each account goes where it chose, an older one to the default", () => {
+    expect(baseOf({ type: "api", key: "k" })).toBe(BASE)
+    expect(baseOf({ type: "api", key: "k", metadata: { base: BASES[1].value } })).toBe("https://api-s.codezsy.com/v1")
+    expect(baseOf({ type: "api", key: "k", metadata: { base: "custom", customBase: "https://my.relay.dev/" } })).toBe("https://my.relay.dev/v1")
+    expect(baseOf({ type: "api", key: "k", metadata: { base: "custom", customBase: "nonsense" } })).toBe(BASE)
+  })
+
+  test("sign-in asks the address, the other one only when chosen", () => {
+    const [m] = createPlugin().auth.methods
+    const [pick, typed] = m.prompts
+    expect(m.authorize).toBeUndefined() // magpie asks the key and keeps the answers
+    expect(pick.options.map((o) => o.value)).toEqual([...BASES.map((b) => b.value), "custom"])
+    expect(pick.options[0].value).toBe(BASE)
+    expect(typed.when).toEqual({ key: "base", op: "eq", value: "custom" })
+    expect(typed.validate("https://ok.dev/v1")).toBeUndefined()
+    expect(typed.validate("nope")).toContain("http")
+  })
+
+  test("the loader, the list and the check all use the account's address", async () => {
+    const auth = { type: "api", key: "sk-s", metadata: { base: "https://api-s.codezsy.com/v1" } }
+    const { f, seen } = fakeFetch(() => json(200, LIST))
+    const p = createPlugin({ fetchImpl: f })
+    expect(await p.auth.loader(async () => auth)).toEqual({ baseURL: "https://api-s.codezsy.com/v1", apiKey: "sk-s" })
+    const rows = await p.provider.models({ models: {} }, { auth })
+    expect(rows["gpt-6.2-sol"].api.url).toBe("https://api-s.codezsy.com/v1")
+    await p.auth.usage(async () => auth)
+    expect(seen.map((x) => x.url)).toEqual(["https://api-s.codezsy.com/v1/models", "https://api-s.codezsy.com/v1/models"])
   })
 })

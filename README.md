@@ -13,6 +13,14 @@
   
   CodeZ 列表里标出的其他接口写进 `also`：客户端用那些接口发来的请求原样转发，
   不做翻译。
+- 地址：登录时选这把密钥的请求发到哪儿，每个账号各自记着：
+  - `api.codezsy.com`：直连（默认）；
+  - `api-s.codezsy.com`：多节点中转；
+  - `api.zwenooo.link`、`api-s.zwenooo.link`：备用域名，分别是直连和中转；
+  - 自定义地址：填 `/v1` 那一级，只填域名会自动补 `/v1`。
+
+  这几个地址后面是同一个 CodeZ，同一把密钥哪个都能用。插件 0.2.0 之前登录的账号
+  没记地址，走 `api.codezsy.com`；要换地址，把这把密钥重新登录一次。
 - 用量：CodeZ 不通过 API 公开密钥的额度（`quota_details_hidden`），所以只检查
   密钥是否可用。余额去 codezsy.com 看。
 
@@ -22,7 +30,7 @@
 
 ```sh
 magpie plugin add magpie-plugin-codez
-magpie plugin login codez        # 粘贴 API 密钥；每把密钥登录一次
+magpie plugin login codez        # 先选地址，再粘贴 API 密钥；每把密钥登录一次
 ```
 
 也可以直接从 GitHub 装：`magpie plugin add github:zwenooo/magpie-codez`。

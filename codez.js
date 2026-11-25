@@ -11,11 +11,49 @@
 // says only "openai" for them; a Claude model on Messages; every other on
 // chat completions. The other APIs a model is served on go in `also`, so a
 // client's request on one of them is relayed as it was sent.
+//
+// Where a key's requests go is asked at sign-in: one of CodeZ's addresses
+// (all reach the same CodeZ, so a key works on each), or one typed. The
+// answer is kept in the account's metadata; an account signed in before
+// there was a choice has none and goes to BASE.
 
 export const ID = "codez"
 export const BASE = "https://api.codezsy.com/v1"
 export const SITE = "https://codezsy.com"
 export const KEYS = "https://codezsy.com/console/token"
+
+// CodeZ's addresses, all in front of the same CodeZ: api.* straight to it,
+// api-s.* through relays on several nodes; zwenooo.link the same again
+export const BASES = [
+  { value: BASE, label: "api.codezsy.com", hint: "Direct (default)", hintZh: "直连（默认）" },
+  { value: "https://api-s.codezsy.com/v1", label: "api-s.codezsy.com", hint: "Through relays on several nodes", hintZh: "多节点中转" },
+  { value: "https://api.zwenooo.link/v1", label: "api.zwenooo.link", hint: "Spare domain, direct", hintZh: "备用域名，直连" },
+  { value: "https://api-s.zwenooo.link/v1", label: "api-s.zwenooo.link", hint: "Spare domain, through relays", hintZh: "备用域名，多节点中转" },
+]
+const CUSTOM = "custom"
+
+// normalBase is a typed address as requests take it: http(s), no query,
+// no trailing slash, /v1 when it names only the host; null when it is no
+// such address.
+export function normalBase(s) {
+  let u
+  try {
+    u = new URL(String(s ?? "").trim())
+  } catch {
+    return null
+  }
+  if ((u.protocol !== "https:" && u.protocol !== "http:") || u.search || u.hash || u.username || u.password) return null
+  const path = u.pathname.replace(/\/+$/, "")
+  return u.origin + (path || "/v1")
+}
+
+// baseOf is where an account's requests go: what it chose at sign-in,
+// else BASE.
+export function baseOf(auth) {
+  const md = auth?.metadata
+  const chosen = md?.base === CUSTOM ? md?.customBase : md?.base
+  return (chosen && normalBase(chosen)) || BASE
+}
 
 const CHAT = "@ai-sdk/openai-compatible"
 const RESPONSES = "@ai-sdk/openai"
@@ -59,13 +97,13 @@ export function readsImages(id) {
 // row is a model as OpenCode's provider list has it, the shape magpie's
 // plugin host reads from a models hook. Its name is its id, as CodeZ's
 // console shows it.
-export function row(id, types) {
+export function row(id, types, base = BASE) {
   const { npm, also } = apisOf(id, types)
   const image = readsImages(id)
   return {
     id,
     name: id,
-    api: { id, url: BASE, npm },
+    api: { id, url: base, npm },
     status: "active",
     headers: {},
     options: {},
@@ -85,19 +123,19 @@ export function row(id, types) {
 
 // rowsOf is the model list of CodeZ's /v1/models answer, null when the
 // answer is no list.
-export function rowsOf(body) {
+export function rowsOf(body, base = BASE) {
   if (!Array.isArray(body?.data)) return null
   const out = {}
   for (const m of body.data) {
     if (typeof m?.id !== "string" || !m.id) return null
-    out[m.id] = row(m.id, m.supported_endpoint_types)
+    out[m.id] = row(m.id, m.supported_endpoint_types, base)
   }
   return out
 }
 
-function listModels(fetchImpl, key, signal) {
-  return fetchImpl(`${BASE}/models`, {
-    headers: { authorization: `Bearer ${key}`, accept: "application/json" },
+function listModels(fetchImpl, auth, signal) {
+  return fetchImpl(`${baseOf(auth)}/models`, {
+    headers: { authorization: `Bearer ${auth.key}`, accept: "application/json" },
     signal: signal ?? AbortSignal.timeout(15000),
     redirect: "error",
   })
@@ -115,13 +153,42 @@ export function createPlugin({ fetchImpl = globalThis.fetch } = {}) {
 
     auth: {
       provider: ID,
-      methods: [{ type: "api", label: "CodeZ API key", placeholder: "sk-…" }],
+      methods: [
+        {
+          type: "api",
+          label: "CodeZ API key",
+          placeholder: "sk-…",
+          // no authorize: magpie asks the key, then keeps these answers
+          // as the account's metadata (baseOf)
+          prompts: [
+            {
+              type: "select",
+              key: "base",
+              message: "Which CodeZ address should this key's requests go to?",
+              messages: { zh: "这把密钥的请求发到哪个 CodeZ 地址？" },
+              options: [
+                ...BASES.map((b) => ({ label: b.label, value: b.value, hint: b.hint, hints: { zh: b.hintZh } })),
+                { label: "Other address…", labels: { zh: "自定义地址…" }, value: CUSTOM, hint: "Type it next", hints: { zh: "下一步填写" } },
+              ],
+            },
+            {
+              type: "text",
+              key: "customBase",
+              message: "Address (its /v1 base)",
+              messages: { zh: "地址（/v1 那一级）" },
+              placeholder: "https://api.codezsy.com/v1",
+              when: { key: "base", op: "eq", value: CUSTOM },
+              validate: (v) => (normalBase(v) ? undefined : "Type an http(s) address, such as https://api.codezsy.com/v1"),
+            },
+          ],
+        },
+      ],
       // magpie puts the key on each request in the way its API takes it
       // (Authorization: Bearer, or x-api-key on Messages); CodeZ takes both
       async loader(getAuth) {
         const auth = await getAuth()
         if (auth?.type !== "api" || !auth.key) return {}
-        return { baseURL: BASE, apiKey: auth.key }
+        return { baseURL: baseOf(auth), apiKey: auth.key }
       },
       // CodeZ hides a key's quota from its API (quota_details_hidden), so
       // this only checks the key and says where its balance is
@@ -130,7 +197,7 @@ export function createPlugin({ fetchImpl = globalThis.fetch } = {}) {
         if (auth?.type !== "api" || !auth.key) return {}
         let res
         try {
-          res = await listModels(fetchImpl, auth.key)
+          res = await listModels(fetchImpl, auth)
         } catch (e) {
           return { error: `CodeZ unreachable: ${e?.cause?.code || e?.message || "network error"}`, windows: [] }
         }
@@ -147,7 +214,7 @@ export function createPlugin({ fetchImpl = globalThis.fetch } = {}) {
         if (auth?.type !== "api" || !auth.key) return provider.models
         let res
         try {
-          res = await listModels(fetchImpl, auth.key, signal)
+          res = await listModels(fetchImpl, auth, signal)
         } catch {
           return provider.models // unreachable: the list it had stays
         }
@@ -159,7 +226,7 @@ export function createPlugin({ fetchImpl = globalThis.fetch } = {}) {
         } catch {
           throw new Error("CodeZ sent no model list")
         }
-        const rows = rowsOf(body)
+        const rows = rowsOf(body, baseOf(auth))
         if (!rows) throw new Error("CodeZ sent no model list")
         return rows
       },
