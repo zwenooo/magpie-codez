@@ -157,6 +157,29 @@ function listModels(fetchImpl, auth, signal) {
   })
 }
 
+// familyOf is the family a model id is counted under on its account's
+// row: GPT for OpenAI's (gpt-, codex, o1…), else the id's first word
+// without the version after it.
+const NAMES = { claude: "Claude", gemini: "Gemini", deepseek: "DeepSeek", glm: "GLM", kimi: "Kimi", qwen: "Qwen", grok: "Grok", minimax: "MiniMax" }
+export function familyOf(id) {
+  if (openAIModel(id)) return "GPT"
+  const first = last(id).split(/[-_.:\s]/)[0] || last(id)
+  const w = first.replace(/\d+$/, "") || first // qwen3.7-plus is Qwen's
+  return NAMES[w] ?? w.charAt(0).toUpperCase() + w.slice(1)
+}
+
+// summary is an account's row: where its key's requests go, and the
+// families its key lists, most first ("api-s.codezsy.com · Claude 12 ·
+// GPT 11"), so keys of different groups tell apart at a glance.
+export function summary(base, ids) {
+  const n = new Map()
+  for (const id of ids) n.set(familyOf(id), (n.get(familyOf(id)) ?? 0) + 1)
+  const fams = [...n].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+  const shown = fams.slice(0, 4).map(([f, c]) => `${f} ${c}`)
+  if (fams.length > 4) shown.push(`+${fams.length - 4}`)
+  return [new URL(base).host, ...(ids.length ? shown : ["no models"])].join(" · ")
+}
+
 const refused = (status) => `CodeZ refused this key (HTTP ${status}): check it at ${KEYS}, then sign in again`
 
 export function createPlugin({ fetchImpl = globalThis.fetch } = {}) {
@@ -219,7 +242,14 @@ export function createPlugin({ fetchImpl = globalThis.fetch } = {}) {
         }
         if (res.status === 401 || res.status === 403) return { error: refused(res.status), signIn: "expired", windows: [] }
         if (!res.ok) return { error: `CodeZ answered HTTP ${res.status}`, windows: [] }
-        return { plan: `Pay as you go · balance at ${SITE}`, windows: [] }
+        let body
+        try {
+          body = await res.json()
+        } catch {
+          body = null
+        }
+        const ids = Array.isArray(body?.data) ? body.data.map((m) => m?.id).filter((x) => typeof x === "string" && x) : []
+        return { plan: summary(baseOf(auth), ids), windows: [] }
       },
     },
 

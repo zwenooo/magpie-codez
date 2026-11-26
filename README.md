@@ -24,8 +24,13 @@
   影响；不走流式又很久才出结果的请求，用 `api-s`。这几个地址后面是同一个 CodeZ，
   同一把密钥哪个都能用。插件 0.2.0 之前登录的账号没记地址，走
   `api.codezsy.com`；要换地址，把这把密钥重新登录一次。
-- 用量：CodeZ 不通过 API 公开密钥的额度（`quota_details_hidden`），所以只检查
-  密钥是否可用。余额去 codezsy.com 看。
+- 账号那一行写着这把密钥走的地址和它列出的模型，按系列数，多的在前，比如
+  `api-s.codezsy.com · Claude 12 · GPT 11`，几把不同分组的密钥一眼能分开。
+  CodeZ 不通过 API 公开密钥的额度（`quota_details_hidden`），所以没有用量数字，
+  余额去 codezsy.com 看。
+- 路由：magpie 按模型挑密钥，列表里没有这个模型的密钥排在后面，所以 GPT 发给有
+  GPT 的那把、Claude 发给有 Claude 的那把。账号区写的"前一个额度用完换下一个"是
+  magpie 给订阅账号的通用说明，插件改不了。
 
 ## 安装
 

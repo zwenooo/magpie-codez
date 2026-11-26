@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { apisOf, BASE, BASES, baseOf, createPlugin, normalBase, openAIModel, readsImages, rowsOf } from "./codez.js"
+import { apisOf, BASE, BASES, baseOf, createPlugin, familyOf, normalBase, summary, openAIModel, readsImages, rowsOf } from "./codez.js"
 import * as entry from "./index.js"
 
 // Entries as CodeZ's /v1/models answered on 2026-11-25, one per key group.
@@ -144,5 +144,27 @@ describe("where a key's requests go", () => {
     expect(rows["gpt-6.2-sol"].api.url).toBe("https://api-s.codezsy.com/v1")
     await p.auth.usage(async () => auth)
     expect(seen.map((x) => x.url)).toEqual(["https://api-s.codezsy.com/v1/models", "https://api-s.codezsy.com/v1/models"])
+  })
+})
+
+describe("an account's row", () => {
+  test("says where its key goes and the families it lists, most first", () => {
+    expect(familyOf("gpt-6.2-sol")).toBe("GPT")
+    expect(familyOf("codex-auto-review")).toBe("GPT")
+    expect(familyOf("claude-opus-5-5")).toBe("Claude")
+    expect(familyOf("deepseek-v4-pro")).toBe("DeepSeek")
+    expect(familyOf("minimax-m3")).toBe("MiniMax")
+    expect(familyOf("doubao-seed-2")).toBe("Doubao")
+    expect(familyOf("qwen3.7-plus")).toBe("Qwen")
+    expect(familyOf("k2")).toBe("K")
+    expect(summary(BASE, LIST.data.map((m) => m.id))).toBe("api.codezsy.com · GPT 2 · Claude 1 · DeepSeek 1 · Gemini 1")
+    expect(summary("https://api-s.codezsy.com/v1", ["a-1", "b-1", "c-1", "d-1", "e-1", "e-2"])).toBe("api-s.codezsy.com · E 2 · A 1 · B 1 · C 1 · +1")
+    expect(summary(BASE, [])).toBe("api.codezsy.com · no models")
+  })
+
+  test("usage reads the key's list into its row", async () => {
+    const auth = { type: "api", key: "sk-s", metadata: { base: "https://api-cfmax.codezsy.com/v1" } }
+    const p = createPlugin({ fetchImpl: fakeFetch(() => json(200, LIST)).f })
+    expect((await p.auth.usage(async () => auth)).plan).toBe("api-cfmax.codezsy.com · GPT 2 · Claude 1 · DeepSeek 1 · Gemini 1")
   })
 })
