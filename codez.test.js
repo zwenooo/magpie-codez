@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { apisOf, BASE, BASES, baseOf, createPlugin, familyOf, normalBase, summary, openAIModel, readsImages, rowsOf } from "./codez.js"
+import { apisOf, BASE, BASES, baseOf, createPlugin, familyOf, geminiURL, normalBase, summary, openAIModel, readsImages, rowsOf } from "./codez.js"
 import * as entry from "./index.js"
 
 // Entries as CodeZ's /v1/models answered on 2026-11-25, one per key group.
@@ -21,10 +21,12 @@ describe("which API each model is asked on", () => {
     expect(apisOf("o4-mini", []).npm).toBe("@ai-sdk/openai")
     expect(apisOf("claude-opus-5-5", ["anthropic", "openai"])).toEqual({ npm: "@ai-sdk/anthropic", also: ["@ai-sdk/openai-compatible"] })
     expect(apisOf("deepseek-v4-pro", ["openai", "openai-alpha-search"])).toEqual({ npm: "@ai-sdk/openai-compatible", also: [] })
+    // a Gemini model on Gemini's own API where CodeZ serves it, else on chat
     expect(apisOf("gemini-4-neon", ["openai", "openai-response", "anthropic", "gemini"])).toEqual({
-      npm: "@ai-sdk/openai-compatible",
-      also: ["@ai-sdk/openai", "@ai-sdk/anthropic"],
+      npm: "@ai-sdk/google",
+      also: ["@ai-sdk/openai-compatible", "@ai-sdk/openai", "@ai-sdk/anthropic"],
     })
+    expect(apisOf("gemini-4-neon", ["openai"])).toEqual({ npm: "@ai-sdk/openai-compatible", also: [] })
     // not OpenAI's: an o that isn't followed by a digit
     expect(openAIModel("omni-1")).toBe(false)
     expect(readsImages("glm-5.2")).toBe(false)
@@ -47,7 +49,8 @@ describe("which API each model is asked on", () => {
 function fakeFetch(answer) {
   const seen = []
   const f = async (url, init) => {
-    seen.push({ url, auth: init?.headers?.authorization })
+    const h = init?.headers
+    seen.push({ url, auth: h instanceof Headers ? (h.get("authorization") ?? undefined) : h?.authorization })
     return typeof answer === "function" ? answer() : answer
   }
   return { f, seen }
@@ -99,7 +102,7 @@ describe("the plugin's hooks", () => {
 
   test("the loader hands magpie the base and the key; usage checks the key", async () => {
     const p = createPlugin({ fetchImpl: fakeFetch(() => json(403, {})).f })
-    expect(await p.auth.loader(async () => ({ type: "api", key: "sk-k" }))).toEqual({ baseURL: BASE, apiKey: "sk-k" })
+    expect(await p.auth.loader(async () => ({ type: "api", key: "sk-k" }))).toMatchObject({ baseURL: BASE, apiKey: "sk-k" })
     expect(await p.auth.loader(async () => undefined)).toEqual({})
     expect(await p.auth.usage(async () => ({ type: "api", key: "sk-k" }))).toMatchObject({ signIn: "expired" })
     const ok = createPlugin({ fetchImpl: fakeFetch(() => json(200, LIST)).f })
@@ -139,11 +142,44 @@ describe("where a key's requests go", () => {
     const auth = { type: "api", key: "sk-s", metadata: { base: "https://api-s.codezsy.com/v1" } }
     const { f, seen } = fakeFetch(() => json(200, LIST))
     const p = createPlugin({ fetchImpl: f })
-    expect(await p.auth.loader(async () => auth)).toEqual({ baseURL: "https://api-s.codezsy.com/v1", apiKey: "sk-s" })
+    expect(await p.auth.loader(async () => auth)).toMatchObject({ baseURL: "https://api-s.codezsy.com/v1", apiKey: "sk-s" })
     const rows = await p.provider.models({ models: {} }, { auth })
     expect(rows["gpt-6.2-sol"].api.url).toBe("https://api-s.codezsy.com/v1")
     await p.auth.usage(async () => auth)
     expect(seen.map((x) => x.url)).toEqual(["https://api-s.codezsy.com/v1/models", "https://api-s.codezsy.com/v1/models"])
+  })
+})
+
+describe("Gemini's own API", () => {
+  test("a Gemini request magpie sends under the base goes to /v1beta", () => {
+    const b = "https://api-s.codezsy.com/v1"
+    expect(geminiURL(b + "/models/gemini-4-neon:streamGenerateContent?alt=sse", b)).toBe("https://api-s.codezsy.com/v1beta/models/gemini-4-neon:streamGenerateContent?alt=sse")
+    expect(geminiURL(b + "/models/gemini-4-neon:generateContent", b)).toBe("https://api-s.codezsy.com/v1beta/models/gemini-4-neon:generateContent")
+    expect(geminiURL(b + "/models/gemini-4-neon:countTokens", b)).toBe("https://api-s.codezsy.com/v1beta/models/gemini-4-neon:countTokens")
+    // an address with a path of its own keeps it
+    expect(geminiURL("https://x.dev/relay/v1/models/m:generateContent", "https://x.dev/relay/v1")).toBe("https://x.dev/relay/v1beta/models/m:generateContent")
+    // anything else is as it was
+    for (const u of [b + "/chat/completions", b + "/messages", b + "/responses", b + "/models", "https://other.dev/v1/models/m:generateContent"]) expect(geminiURL(u, b)).toBe(u)
+  })
+
+  test("the loader's fetch sends it there, the others where magpie said", async () => {
+    const auth = { type: "api", key: "sk-g", metadata: { base: "https://api-s.codezsy.com/v1" } }
+    const { f, seen } = fakeFetch(() => json(200, {}))
+    const o = await createPlugin({ fetchImpl: f }).auth.loader(async () => auth)
+    await o.fetch("https://api-s.codezsy.com/v1/models/gemini-4-neon:streamGenerateContent?alt=sse", { method: "POST", headers: new Headers({ "x-goog-api-key": "sk-g" }) })
+    // a Gemini model's request on Responses: magpie put the key in
+    // x-goog-api-key, which CodeZ's Responses API doesn't read
+    await o.fetch("https://api-s.codezsy.com/v1/responses", { method: "POST", headers: new Headers({ "x-goog-api-key": "sk-g" }) })
+    expect(seen).toEqual([
+      { url: "https://api-s.codezsy.com/v1beta/models/gemini-4-neon:streamGenerateContent?alt=sse", auth: "Bearer sk-g" },
+      { url: "https://api-s.codezsy.com/v1/responses", auth: "Bearer sk-g" },
+    ])
+  })
+
+  test("a model CodeZ serves on Gemini's API is said to be", async () => {
+    const rows = rowsOf(LIST)
+    expect(rows["gemini-4-neon"].api.npm).toBe("@ai-sdk/google")
+    expect(rows["claude-opus-5-5"].also ?? []).not.toContain("@ai-sdk/google")
   })
 })
 

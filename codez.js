@@ -3,14 +3,17 @@
 // CodeZ is a new-api relay at https://api.codezsy.com. One key reaches the
 // models of its group: GET /v1/models lists them, each with the APIs CodeZ
 // says it serves it on (supported_endpoint_types: "openai" is chat
-// completions, "openai-response" the Responses API, "anthropic" Messages).
+// completions, "openai-response" the Responses API, "anthropic" Messages,
+// "gemini" Google's generateContent).
 //
-// Which API a model is asked on, as the zwenooo/magpie fork's CodeZ preset
-// did: an OpenAI model (gpt-…, codex…, o1…) on Responses, which CodeZ
-// serves natively (and turns a chat request for one into), though its list
-// says only "openai" for them; a Claude model on Messages; every other on
-// chat completions. The other APIs a model is served on go in `also`, so a
-// client's request on one of them is relayed as it was sent.
+// Which API a model is asked on: an OpenAI model (gpt-…, codex…, o1…) on
+// Responses, which CodeZ serves natively (and turns a chat request for one
+// into), though its list says only "openai" for them; a Claude model on
+// Messages; a Gemini model CodeZ serves on Gemini's own API on that, at
+// /v1beta (geminiURL), so the Gemini CLI's requests reach it as Gemini's
+// rather than through chat completions; every other on chat completions.
+// The other APIs a model is served on go in `also`, so a client's request
+// on one of them is relayed as it was sent.
 //
 // Where a key's requests go is asked at sign-in: one of CodeZ's addresses
 // (all reach the same CodeZ, so a key works on each), or one typed. The
@@ -74,9 +77,28 @@ export function baseOf(auth) {
 const CHAT = "@ai-sdk/openai-compatible"
 const RESPONSES = "@ai-sdk/openai"
 const MESSAGES = "@ai-sdk/anthropic"
+// magpie sends a model on @ai-sdk/google through the plugin as Google's
+// Gemini API asks it: <base>/models/<model>:streamGenerateContent
+const GEMINI = "@ai-sdk/google"
 
 // the AI SDK package of each API CodeZ names
-const BY_TYPE = { openai: CHAT, "openai-response": RESPONSES, anthropic: MESSAGES }
+const BY_TYPE = { openai: CHAT, "openai-response": RESPONSES, anthropic: MESSAGES, gemini: GEMINI }
+
+// geminiURL is where CodeZ takes a request magpie sent under base for
+// Google's Gemini API: new-api serves it at /v1beta beside /v1, and
+// answers 404 under /v1. Any other URL is as it was.
+export function geminiURL(url, base) {
+  const u = String(url)
+  if (!u.startsWith(base + "/models/") || !/:(streamGenerateContent|generateContent|countTokens)(\?|$)/.test(u)) return u
+  return base.replace(/\/v1$/, "") + "/v1beta" + u.slice(base.length)
+}
+
+// withBearer is a request's init with the key in its Authorization.
+export function withBearer(init, key) {
+  const headers = new Headers(init?.headers)
+  headers.set("authorization", `Bearer ${key}`)
+  return { ...init, headers }
+}
 
 function last(id) {
   return id.slice(id.lastIndexOf("/") + 1).toLowerCase()
@@ -92,11 +114,16 @@ export function claudeModel(id) {
   return last(id).startsWith("claude")
 }
 
+export function geminiModel(id) {
+  return last(id).startsWith("gemini")
+}
+
 // apisOf is the API a model is asked on, then the others it is served on.
 export function apisOf(id, types) {
-  const own = openAIModel(id) ? RESPONSES : claudeModel(id) ? MESSAGES : CHAT
+  types = Array.isArray(types) ? types : []
+  const own = openAIModel(id) ? RESPONSES : claudeModel(id) ? MESSAGES : geminiModel(id) && types.includes("gemini") ? GEMINI : CHAT
   const also = [CHAT]
-  for (const t of Array.isArray(types) ? types : []) {
+  for (const t of types) {
     const npm = BY_TYPE[t]
     if (npm && !also.includes(npm)) also.push(npm)
   }
@@ -106,8 +133,7 @@ export function apisOf(id, types) {
 // Image input for the families known to read images; any other model is
 // sent text only, so it is never sent what it can't read.
 export function readsImages(id) {
-  const m = last(id)
-  return claudeModel(id) || openAIModel(id) || m.startsWith("gemini")
+  return claudeModel(id) || openAIModel(id) || geminiModel(id)
 }
 
 // row is a model as OpenCode's provider list has it, the shape magpie's
@@ -222,12 +248,16 @@ export function createPlugin({ fetchImpl = globalThis.fetch } = {}) {
           ],
         },
       ],
-      // magpie puts the key on each request in the way its API takes it
-      // (Authorization: Bearer, or x-api-key on Messages); CodeZ takes both
+      // magpie puts the key on each request in the header the model's own
+      // API takes (x-goog-api-key for a Gemini model's), whichever API the
+      // request is on; CodeZ's Responses API reads only Authorization. So
+      // the fetch sends the key as a Bearer on each, which every API of
+      // CodeZ's takes, and moves a Gemini request to /v1beta (geminiURL)
       async loader(getAuth) {
         const auth = await getAuth()
         if (auth?.type !== "api" || !auth.key) return {}
-        return { baseURL: baseOf(auth), apiKey: auth.key }
+        const base = baseOf(auth)
+        return { baseURL: base, apiKey: auth.key, fetch: (url, init) => fetchImpl(geminiURL(url, base), withBearer(init, auth.key)) }
       },
       // CodeZ hides a key's quota from its API (quota_details_hidden), so
       // this only checks the key and says where its balance is

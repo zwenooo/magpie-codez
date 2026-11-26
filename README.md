@@ -5,14 +5,19 @@
 - 模型列表来自每把密钥自己的 `/v1/models`：一把密钥属于 CodeZ 的一个分组，
   只列这个分组能用的模型。多把密钥（比如 gpt 分组、国模分组、gemini 分组）
   都登录在同一个 CodeZ 供应商下，请求会发给列着这个模型的那把。
-- 每个模型走哪个接口（和 zwenooo/magpie fork 的 CodeZ 预设一样）：
+- 每个模型走哪个接口：
   - GPT、Codex、o 系列走 Responses。CodeZ 原生支持，它的模型列表里却只标了
     `openai`（Chat）；
   - Claude 走 Messages；
+  - Gemini 模型：CodeZ 列表里标了 `gemini` 的，走 Gemini 原生接口
+    （generateContent），发到 CodeZ 的 `/v1beta`（和 `/v1` 同一级）。Gemini CLI
+    的请求按 Gemini 的格式发过去，不再经过 Chat 转换（0.4.3 起）；
   - 其他模型走 Chat completions。
-  
-  CodeZ 列表里标出的其他接口写进 `also`：客户端用那些接口发来的请求原样转发，
-  不做翻译。
+
+  CodeZ 列表里标出的其他接口写进 `also`：客户端用那些接口发来的流式请求原样转发，
+  不做翻译。插件给每个请求都带上 `Authorization: Bearer <密钥>`：magpie 按模型
+  自己的接口放密钥（Gemini 模型放在 `x-goog-api-key`），而 CodeZ 的 Responses
+  接口只认 `Authorization`。
 - 地址：登录时选这把密钥的请求发到哪儿，每个账号各自记着。窗口里鼠标停在选项上、
   命令行里选项后面，能看到每个地址的说明：
   - `api-cfmax.codezsy.com`：Cloudflare 优选节点，线路稳定；
