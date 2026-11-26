@@ -1,6 +1,6 @@
 {
   "name": "magpie-plugin-codez",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "CodeZ (codezsy.com) as a magpie provider with your API key: each key's models, GPT on Responses, Claude on Messages, Gemini on Gemini's own API, the rest on chat completions; a panel to name, change, add and remove keys, compare addresses and test a model on each API",
   "keywords": [
     "magpie",

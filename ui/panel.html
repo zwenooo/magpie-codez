@@ -31,7 +31,7 @@
   button.danger.sure { background: var(--red); border-color: var(--red); color: #fff; }
   button.link { border: 0; background: none; padding: 0 2px; color: var(--accent); }
   button.small { padding: 1px 8px; font-size: 12px; }
-  input, select { font: inherit; color: inherit; background: var(--card); border: 1px solid var(--line); border-radius: 7px; padding: 4px 8px; min-width: 0; }
+  input, select { font: inherit; color: inherit; background-color: var(--card); border: 1px solid var(--line); border-radius: 7px; padding: 4px 8px; min-width: 0; height: 30px; }
   input:focus, select:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
   .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
   .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; background: var(--faint); }
@@ -69,6 +69,28 @@
   .tip { cursor: help; border-bottom: 1px dotted var(--faint); }
   .err-text { color: var(--red); white-space: normal; word-break: break-all; font-size: 12px; }
   td.wrap { white-space: normal; }
+  select { appearance: none; -webkit-appearance: none; height: 30px; padding: 0 30px 0 10px; cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%239ca3af' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 10px center; }
+  .test-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field > span { font-size: 12px; color: var(--muted); }
+  .field select { min-width: 200px; max-width: 320px; }
+  .pills { display: flex; gap: 6px; height: 30px; align-items: center; }
+  .pill { display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 10px; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; user-select: none; font-size: 12px; color: var(--muted); background: var(--card); }
+  .pill input { display: none; }
+  .pill.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+  .pill small { font-size: 10px; opacity: .8; }
+  .test-form button.primary { height: 30px; }
+  .test-info { margin: 12px 0 0; font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  .test-info b { font-weight: 500; color: var(--fg); }
+  #tOut { margin-top: 10px; }
+  #tOut table { table-layout: fixed; }
+  #tOut th:nth-child(1) { width: 110px; }
+  #tOut th:nth-child(2) { width: 190px; }
+  #tOut th:nth-child(3) { width: 130px; }
+  @keyframes pulse { 50% { opacity: .3; } }
+  .running .dot { background: var(--amber); animation: pulse 1s ease-in-out infinite; }
 </style>
 </head>
 <body>
@@ -112,12 +134,13 @@
   <section>
     <h2>模型接口测试 <span class="muted">· 直接问 CodeZ（不经过 magpie），每个接口发一句极短的话，会花一点额度</span></h2>
     <div class="box">
-      <div class="row">
-        <select id="tKey"></select>
-        <select id="tModel"></select>
-        <button id="tGo" class="primary">测试 4 个接口</button>
-        <span class="faint" id="tNote"></span>
+      <div class="test-form">
+        <label class="field"><span>密钥</span><select id="tKey"></select></label>
+        <label class="field"><span>模型</span><select id="tModel"></select></label>
+        <div class="field"><span>接口（默认勾 CodeZ 标了的）</span><div class="pills" id="tApis"></div></div>
+        <button id="tGo" class="primary">开始测试</button>
       </div>
+      <div class="test-info" id="tInfo"></div>
       <div id="tOut"></div>
     </div>
   </section>
@@ -147,7 +170,6 @@ const open = new Set()
 let last = null
 let editing = null // account id being edited
 let sure = null // account id whose delete asks once more
-let tests = {} // model → result
 
 // the theme magpie's page handed over in the address
 try {
@@ -367,55 +389,129 @@ function drawSpeeds() {
   box.replaceChildren(t, note)
 }
 
+// the model test: which key, model and APIs, and each API's result for
+// the key and model it was asked of (id \0 model → api → result)
+const APIS = ["chat", "responses", "messages", "gemini"]
+const picked = { apis: null } // the APIs ticked; null: those CodeZ lists
+const results = new Map()
+const running = new Set()
+
+const keyOf = () => $("tKey").value + "\0" + $("tModel").value
+const pickedAccount = () => last.accounts.find((x) => x.id === $("tKey").value)
+const pickedModel = () => pickedAccount()?.check?.models?.find((x) => x.id === $("tModel").value)
+const listedOn = (m) => APIS.filter((ap) => m?.types.some((ty) => TYPE_API[ty] === ap))
+
 function drawTestPick() {
   const k = $("tKey"), m = $("tModel")
   const keep = k.value, keepM = m.value
   k.replaceChildren()
-  for (const a of last.accounts) { const o = el("option", "", `${who(a)} ${a.key}`); o.value = a.id; k.append(o) }
+  for (const a of last.accounts) { const o = el("option", "", `${who(a)}  ${a.key}`); o.value = a.id; k.append(o) }
   if (keep && last.accounts.some((a) => a.id === keep)) k.value = keep
-  const a = last.accounts.find((x) => x.id === k.value)
+  const a = pickedAccount()
   m.replaceChildren()
   for (const x of a?.check?.models || []) { const o = el("option", "", x.id); o.value = x.id; m.append(o) }
+  if (!m.options.length) { const o = el("option", "", a && !a.check ? "先检查这把密钥" : "没有模型"); o.value = ""; m.append(o) }
   if (keepM && [...m.options].some((o) => o.value === keepM)) m.value = keepM
-  $("tGo").disabled = !m.value
-  $("tNote").textContent = a && !a.check ? "先检查这把密钥" : ""
+  if (m.value !== keepM) picked.apis = null
+  drawTest()
+}
+
+function chosenAPIs() {
+  const listed = listedOn(pickedModel())
+  return picked.apis ?? (listed.length ? listed : APIS)
 }
 
 function drawTest() {
+  const a = pickedAccount(), m = pickedModel()
+  const on = chosenAPIs()
+  // the API pills
+  const pills = $("tApis")
+  pills.replaceChildren()
+  for (const ap of APIS) {
+    const unlisted = m && !listedOn(m).includes(ap)
+    const lb = el("label", "pill" + (on.includes(ap) ? " on" : ""))
+    lb.title = API_TIPS[ap] + (unlisted ? "。CodeZ 没标这个接口" : "")
+    const cb = el("input")
+    cb.type = "checkbox"
+    cb.checked = on.includes(ap)
+    cb.onchange = () => {
+      const cur = new Set(chosenAPIs())
+      cb.checked ? cur.add(ap) : cur.delete(ap)
+      picked.apis = APIS.filter((x) => cur.has(x))
+      drawTest()
+    }
+    lb.append(cb, document.createTextNode(API_NAMES[ap]))
+    if (unlisted) lb.append(el("small", "", "未标"))
+    pills.append(lb)
+  }
+  const busy = running.size > 0
+  $("tGo").disabled = busy || !m || !on.length
+  $("tGo").textContent = busy ? "测试中…" : on.length ? `测试 ${on.length} 个接口` : "至少勾一个接口"
+  $("tKey").disabled = $("tModel").disabled = busy
+  // where it goes, and how magpie uses the model
+  const info = $("tInfo")
+  info.replaceChildren()
+  if (a && m) {
+    const put = (k, v) => { const sp = el("span"); sp.append(document.createTextNode(k + " "), el("b", "", v)); info.append(sp) }
+    put("发往", host(a.base))
+    put("CodeZ 标了", listedOn(m).map((x) => API_NAMES[x]).join("、") || "没有")
+    put("magpie 默认走", API_NAMES[m.uses])
+    info.append(el("span", "faint", "每个接口发一句 “Reply with the word ok.”，最多 16 个 token"))
+  }
+  // a row for each API ticked: not yet asked, being asked, or its result
   const out = $("tOut")
-  const r = tests.last
-  if (!r) { out.replaceChildren(); return }
-  const a = last.accounts.find((x) => x.id === r.id)
-  const m = a?.check?.models?.find((x) => x.id === r.model)
+  if (!m) { out.replaceChildren(); return }
+  const got = results.get(keyOf()) || {}
   const t = el("table", "inner")
   const h = el("tr")
-  for (const x of ["接口", "CodeZ 标了吗", "magpie 怎么用", "结果", "回复 / 报错"]) h.append(el("th", "", x))
+  for (const x of ["接口", "magpie 怎么用", "结果", "回复 / 报错"]) h.append(el("th", "", x))
   t.append(h)
-  for (const x of r.results) {
+  for (const ap of on) {
+    const x = got[ap]
     const tr = el("tr")
-    const name = el("span", "tip", API_NAMES[x.api]); name.title = API_TIPS[x.api]
-    const listed = m ? m.types.some((ty) => TYPE_API[ty] === x.api) : null
-    const use = !m ? "—" : m.uses === x.api ? "默认走这个接口" : m.also.includes(x.api) ? "客户端用它时原样转发" : "不用"
-    const res = x.ok ? cell("ok", `${x.ms} ms`) : cell("bad", x.status ? `HTTP ${x.status}` : "失败", `${x.ms} ms`)
+    const name = el("span", "tip", API_NAMES[ap])
+    name.title = API_TIPS[ap]
+    const use = m.uses === ap ? "默认走这个接口" : m.also.includes(ap) ? "客户端用它时原样转发" : "不用（CodeZ 没标）"
     const td = (c, cls) => { const d = el("td", cls || ""); d.append(typeof c === "string" ? document.createTextNode(c) : c); return d }
-    tr.append(td(name), td(listed === null ? "—" : listed ? "标了" : "没标", listed === false ? "faint" : ""), td(use), td(res), td(x.ok ? el("span", "mono", x.text || "（空回复：思考用完了 16 个 token，接口是通的）") : el("span", "err-text", x.error), "wrap"))
+    let res, said
+    if (running.has(keyOf() + "\0" + ap)) { res = cell("running", "测试中…"); said = el("span", "faint", "") }
+    else if (!x) { res = cell("", "未测"); said = el("span", "faint", "—") }
+    else {
+      res = x.ok ? cell("ok", `${x.ms} ms`) : cell("bad", x.status ? `HTTP ${x.status}` : "失败", `${x.ms} ms`)
+      said = x.ok ? el("span", "mono", x.text || "（空回复：16 个 token 被思考用完了，接口是通的）") : el("span", "err-text", x.error)
+      if (x.at) res.title = "测于 " + new Date(x.at).toLocaleTimeString()
+    }
+    tr.append(td(name), td(use, m.uses === ap ? "" : "muted"), td(res), td(said, "wrap"))
     t.append(tr)
   }
-  const note = el("div", "say muted", `${r.model} · ${who(a || { name: "" })} · ${host(r.base)} · 测于 ${new Date(r.at).toLocaleTimeString()}`)
-  out.replaceChildren(t, note)
+  out.replaceChildren(t)
 }
 
+// runTest asks each ticked API on a request of its own, so each row fills
+// in as its answer comes
 async function runTest(id, model) {
-  if (id) { $("tKey").value = id; drawTestPick() }
-  if (model) $("tModel").value = model
-  const body = { id: $("tKey").value, model: $("tModel").value }
-  if (!body.model) return
-  $("tGo").disabled = true
-  $("tNote").textContent = `正在测试 ${body.model}，最多一分钟…`
-  $("tKey").scrollIntoView({ behavior: "smooth", block: "center" })
-  try { tests.last = await api("test", body); drawTest(); await load() } catch (e) { say(e.message, "err") }
-  $("tGo").disabled = false
-  $("tNote").textContent = ""
+  if (id && id !== $("tKey").value) { $("tKey").value = id; drawTestPick() }
+  if (model && model !== $("tModel").value) { $("tModel").value = model; picked.apis = null }
+  const key = keyOf()
+  const acct = $("tKey").value, mdl = $("tModel").value
+  const apis = chosenAPIs()
+  if (!mdl || !apis.length) return
+  $("tKey").closest(".box").scrollIntoView({ behavior: "smooth", block: "nearest" })
+  const got = results.get(key) || {}
+  results.set(key, got)
+  for (const ap of apis) { delete got[ap]; running.add(key + "\0" + ap) }
+  drawTest()
+  await Promise.all(apis.map(async (ap) => {
+    try {
+      const r = await api("test", { id: acct, model: mdl, apis: [ap] })
+      got[ap] = { ...r.results[0], at: r.at }
+    } catch (e) {
+      got[ap] = { ok: false, status: 0, ms: 0, error: e.message }
+    }
+    running.delete(key + "\0" + ap)
+    drawTest()
+  }))
+  load()
 }
 
 function draw(s) {
@@ -459,7 +555,7 @@ $("add").onclick = () => {
   if (!box.hidden) $("addForm").replaceChildren(form(null, async (changed, id) => { box.hidden = true; if (changed) { await load(); await check(id) } }))
 }
 $("tKey").onchange = drawTestPick
-$("tModel").onchange = () => ($("tGo").disabled = !$("tModel").value)
+$("tModel").onchange = () => { picked.apis = null; drawTest() }
 $("tGo").onclick = () => runTest()
 for (const b of document.querySelectorAll("[data-open]")) b.onclick = async () => { try { await api("open", { what: b.dataset.open }); say("已在浏览器里打开。") } catch (e) { say(e.message, "err") } }
 load().then(() => check())
