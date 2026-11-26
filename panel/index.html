@@ -1,0 +1,25 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="_magpie/bridge.js"></script>
+<script src="panel.js" defer></script>
+<style>
+  body { margin: 0; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 4px 0; }
+  .muted { opacity: .7; font-size: 12px; margin: 4px 0; }
+  input { min-width: 12em; }
+  #msg:empty { display: none; }
+</style>
+</head>
+<body>
+<p class="muted" id="about"></p>
+<div class="row" id="rename" hidden>
+  <input id="name" maxlength="40">
+  <button id="saveName"></button>
+  <button id="remove"></button>
+</div>
+<div class="row"><button id="add"></button><span class="muted" id="list"></span></div>
+<p class="muted" id="msg"></p>
+</body>
+</html>
