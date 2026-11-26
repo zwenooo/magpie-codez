@@ -1,7 +1,7 @@
 {
   "name": "magpie-plugin-codez",
-  "version": "0.4.3",
-  "description": "CodeZ (codezsy.com) as a magpie provider with your API key: each key's models, GPT on Responses, Claude on Messages, the rest on chat completions",
+  "version": "0.5.0",
+  "description": "CodeZ (codezsy.com) as a magpie provider with your API key: each key's models, GPT on Responses, Claude on Messages, Gemini on Gemini's own API, the rest on chat completions; a panel to name, change, add and remove keys, compare addresses and test a model on each API",
   "keywords": [
     "magpie",
     "magpie-plugin",
@@ -14,6 +14,9 @@
   "files": [
     "index.js",
     "codez.js",
+    "panel.js",
+    "service.js",
+    "ui/",
     "README.md",
     "LICENSE"
   ],
@@ -27,6 +30,22 @@
     "url": "git+https://github.com/zwenooo/magpie-codez.git"
   },
   "magpie": {
-    "icon": "https://codezsy.com/logo.png"
+    "icon": "https://codezsy.com/logo.png",
+    "options": {
+      "port": 3589
+    },
+    "page": {
+      "title": "CodeZ",
+      "titles": {
+        "zh": "CodeZ 面板",
+        "zh-TW": "CodeZ 面板"
+      },
+      "file": "ui/index.html",
+      "icon": "ui/icon.png",
+      "service": {
+        "port": 3589,
+        "option": "port"
+      }
+    }
   }
 }

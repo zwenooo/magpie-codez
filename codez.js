@@ -279,7 +279,9 @@ export function createPlugin({ fetchImpl = globalThis.fetch } = {}) {
           body = null
         }
         const ids = Array.isArray(body?.data) ? body.data.map((m) => m?.id).filter((x) => typeof x === "string" && x) : []
-        return { plan: summary(baseOf(auth), ids), windows: [] }
+        // the name given the key in the panel, as magpie names the account
+        const name = typeof auth.metadata?.name === "string" ? auth.metadata.name.trim() : ""
+        return { plan: summary(baseOf(auth), ids), ...(name ? { user: name } : {}), windows: [] }
       },
     },
 

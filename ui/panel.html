@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>CodeZ 面板</title>
+<style>
+  :root {
+    --bg: #f6f6f7; --card: #fff; --fg: #1c1c1e; --muted: #6b7280; --faint: #9ca3af; --line: #e5e7eb;
+    --accent: #0f766e; --accent-soft: #e6f2f1; --green: #16a34a; --red: #dc2626; --amber: #d97706;
+    --font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", system-ui, sans-serif;
+    --code: ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+    color-scheme: light;
+  }
+  :root.dark { color-scheme: dark; --bg: #1c1c1e; --card: #26262a; --fg: #ececf1; --muted: #a1a1aa; --faint: #71717a; --line: #3f3f46; --accent-soft: #1f3533; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--fg); font: 13px/1.5 var(--font); }
+  main { padding: 20px 24px 40px; max-width: 1280px; }
+  header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  header img { width: 22px; height: 22px; }
+  h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  h2 { font-size: 13px; margin: 0 0 8px; font-weight: 600; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .grow { flex: 1; }
+  .muted { color: var(--muted); }
+  .faint { color: var(--faint); }
+  code, .mono { font-family: var(--code); font-size: 12px; }
+  button { font: inherit; color: inherit; background: var(--card); border: 1px solid var(--line); border-radius: 7px; padding: 4px 12px; cursor: pointer; white-space: nowrap; }
+  button:hover:not(:disabled) { border-color: var(--muted); }
+  button:disabled { opacity: .5; cursor: default; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg, #fff); }
+  button.danger { color: var(--red); }
+  button.danger.sure { background: var(--red); border-color: var(--red); color: #fff; }
+  button.link { border: 0; background: none; padding: 0 2px; color: var(--accent); }
+  button.small { padding: 1px 8px; font-size: 12px; }
+  input, select { font: inherit; color: inherit; background: var(--card); border: 1px solid var(--line); border-radius: 7px; padding: 4px 8px; min-width: 0; }
+  input:focus, select:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; background: var(--faint); }
+  .ok .dot { background: var(--green); }
+  .warn .dot { background: var(--amber); }
+  .bad .dot { background: var(--red); }
+  section { margin-top: 22px; }
+  table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; white-space: nowrap; }
+  th { font-weight: 500; color: var(--muted); font-size: 12px; background: var(--bg); }
+  tr.acct { cursor: pointer; }
+  tr.acct:hover td { background: var(--accent-soft); }
+  tr.detail > td { white-space: normal; background: var(--bg); padding: 10px 14px 14px; }
+  .cell { display: inline-flex; align-items: center; gap: 6px; }
+  .acts { display: inline-flex; gap: 6px; }
+  .tags { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+  .tag { font-size: 11px; border: 1px solid var(--line); border-radius: 5px; padding: 0 6px; color: var(--muted); background: var(--card); }
+  .tag.own { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .tag.off { opacity: .45; text-decoration: line-through; }
+  .box { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .form { display: grid; grid-template-columns: max-content minmax(0, 420px); gap: 8px 12px; align-items: center; }
+  .form label { color: var(--muted); }
+  .form .hint { grid-column: 2; font-size: 12px; color: var(--muted); margin-top: -4px; }
+  .form .bar { grid-column: 2; display: flex; gap: 8px; }
+  .inner { width: 100%; margin-top: 6px; }
+  .inner td, .inner th { padding: 5px 8px; }
+  .fast { color: var(--green); font-weight: 600; }
+  .slow { color: var(--amber); }
+  .fail { color: var(--red); }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .log { font-family: var(--code); font-size: 12px; white-space: pre-wrap; max-height: 260px; overflow: auto; margin: 0; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  .say { margin-top: 10px; font-size: 12px; min-height: 18px; }
+  .say.err { color: var(--red); }
+  .say.good { color: var(--green); }
+  .tip { cursor: help; border-bottom: 1px dotted var(--faint); }
+  .err-text { color: var(--red); white-space: normal; word-break: break-all; font-size: 12px; }
+  td.wrap { white-space: normal; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <img src="icon.png" alt="">
+    <h1>CodeZ</h1>
+    <span id="state" class="chip"><span class="dot"></span><span>读取中…</span></span>
+    <span class="grow"></span>
+    <span id="at" class="faint"></span>
+    <button id="check">检查密钥</button>
+    <button id="speed">线路测速</button>
+    <button id="add" class="primary">添加密钥</button>
+  </header>
+  <div id="say" class="say muted"></div>
+
+  <section id="adder" hidden>
+    <div class="box">
+      <h2>添加密钥</h2>
+      <div id="addForm"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>密钥 <span class="muted">· magpie 里登录的 CodeZ 密钥，点一行看它的模型</span></h2>
+    <table>
+      <thead><tr>
+        <th>名字</th><th>密钥</th><th>地址</th>
+        <th><span class="tip" title="这把密钥列出的模型按系列数，一把密钥属于 CodeZ 的一个分组">分组</span></th>
+        <th>状态</th><th></th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>线路测速 <span class="muted">· 用每把密钥向 CodeZ 的每个地址要一次模型列表（各试两次取快的），不花额度</span></h2>
+    <div id="speeds" class="muted">还没测。点上面的「线路测速」。</div>
+  </section>
+
+  <section>
+    <h2>模型接口测试 <span class="muted">· 直接问 CodeZ（不经过 magpie），每个接口发一句极短的话，会花一点额度</span></h2>
+    <div class="box">
+      <div class="row">
+        <select id="tKey"></select>
+        <select id="tModel"></select>
+        <button id="tGo" class="primary">测试 4 个接口</button>
+        <span class="faint" id="tNote"></span>
+      </div>
+      <div id="tOut"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>日志 <span class="muted">· 这次启动以来，最新的在上面</span></h2>
+    <pre class="log" id="log"></pre>
+  </section>
+
+  <section class="row muted">
+    <span>CodeZ 网站：</span>
+    <button class="link" data-open="site">首页</button>
+    <button class="link" data-open="keys">令牌（密钥）管理</button>
+    <button class="link" data-open="logs">使用日志</button>
+  </section>
+</main>
+<script>
+"use strict"
+const TOKEN = "__CODEZ_TOKEN__"
+const $ = (id) => document.getElementById(id)
+const API_NAMES = { chat: "Chat", responses: "Responses", messages: "Messages", gemini: "Gemini" }
+const API_TIPS = { chat: "OpenAI Chat Completions（/v1/chat/completions）", responses: "OpenAI Responses（/v1/responses），Codex 用", messages: "Anthropic Messages（/v1/messages），Claude Code 用", gemini: "Gemini generateContent（/v1beta），Gemini CLI 用" }
+const TYPE_API = { openai: "chat", "openai-response": "responses", anthropic: "messages", gemini: "gemini" }
+// CodeZ's other endpoint types, as the panel names them
+const TYPE_NAMES = { "openai-alpha-search": "联网搜索" }
+const open = new Set()
+let last = null
+let editing = null // account id being edited
+let sure = null // account id whose delete asks once more
+let tests = {} // model → result
+
+// the theme magpie's page handed over in the address
+try {
+  const m = /theme=([^&]+)/.exec(location.hash)
+  if (m) {
+    const t = JSON.parse(decodeURIComponent(m[1]))
+    if (t.dark) document.documentElement.classList.add("dark")
+    for (const [k, v] of Object.entries(t.tokens || {})) if (v) document.documentElement.style.setProperty("--" + k, v)
+  }
+} catch {}
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag)
+  if (cls) e.className = cls
+  if (text !== undefined) e.textContent = text
+  return e
+}
+
+async function api(path, body) {
+  const r = await fetch("api/" + path, body === undefined
+    ? { headers: { "X-CodeZ-Token": TOKEN } }
+    : { method: "POST", headers: { "X-CodeZ-Token": TOKEN, "Content-Type": "application/json" }, body: JSON.stringify(body) })
+  const j = await r.json().catch(() => ({}))
+  if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`)
+  return j
+}
+
+function say(text, kind) {
+  const s = $("say")
+  s.textContent = text
+  s.className = "say " + (kind || "muted")
+}
+
+function cell(kind, text, tip) {
+  const c = el("span", "cell " + kind)
+  c.append(el("span", "dot"), el("span", "", text))
+  if (tip) c.title = tip
+  return c
+}
+
+const host = (u) => { try { return new URL(u).host } catch { return u } }
+const who = (a) => a.name || (a.first ? "（主密钥）" : "（未命名）")
+
+function families(models) {
+  const n = new Map()
+  for (const m of models) n.set(m.family, (n.get(m.family) || 0) + 1)
+  return [...n].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([f, c]) => `${f} ${c}`).join(" · ")
+}
+
+function stateOf(a) {
+  const c = a.check
+  if (!c) return cell("", "未检查")
+  if (c.status === 200) return cell("ok", `可用 · ${c.ms} ms`, `${new Date(c.at).toLocaleTimeString()} 检查`)
+  if (c.status === 401 || c.status === 403) return cell("bad", "密钥被拒绝", c.error)
+  return cell("bad", c.status ? `HTTP ${c.status}` : "连不上", c.error)
+}
+
+// the form a key is added or changed in; a is the key changed, none for a new one
+function form(a, done) {
+  const f = el("div", "form")
+  const name = el("input"); name.placeholder = "比如：Claude 分组、国模、Gemini"; name.value = a ? a.name : ""; name.maxLength = 40
+  const key = el("input"); key.type = "password"; key.placeholder = a ? `不改就留空（现在是 ${a.key}）` : "sk-…"; key.autocomplete = "off"
+  const sel = el("select")
+  for (const b of last.bases) { const o = el("option", "", b.label); o.value = b.value; o.title = b.hint; sel.append(o) }
+  const co = el("option", "", "自定义地址…"); co.value = "custom"; sel.append(co)
+  sel.value = a ? (a.choice || last.bases[0].value) : last.bases[0].value
+  if (a && !a.choice) {
+    // signed in before there was a choice: it goes to the old default
+    const o = el("option", "", host(last.fallback) + "（登录时没选，默认）"); o.value = ""; sel.prepend(o); sel.value = ""
+  }
+  const custom = el("input"); custom.placeholder = "https://…/v1"; custom.value = a ? a.customBase : ""
+  const hint = el("div", "hint")
+  const showHint = () => {
+    custom.hidden = sel.value !== "custom"
+    const b = last.bases.find((x) => x.value === sel.value)
+    hint.textContent = sel.value === "custom" ? "填 /v1 那一级；只填域名会自动补 /v1。" : b ? b.hint : "这把密钥登录时还没有地址可选，请求发往 " + host(last.fallback) + "。"
+  }
+  sel.onchange = showHint
+  const addrBox = el("div", "row"); addrBox.append(sel, custom)
+  const save = el("button", "primary", a ? "保存" : "添加")
+  const cancel = el("button", "", "取消")
+  const bar = el("div", "bar"); bar.append(save, cancel)
+  f.append(el("label", "", "名字"), name, el("label", "", "密钥"), key, el("label", "", "地址"), addrBox, hint, el("span"), bar)
+  showHint()
+  cancel.onclick = () => done(false)
+  save.onclick = async () => {
+    const body = { name: name.value }
+    if (key.value.trim() || !a) body.key = key.value
+    if (sel.value !== "" ) { body.base = sel.value; if (sel.value === "custom") body.customBase = custom.value }
+    save.disabled = true
+    say(body.key !== undefined || body.base !== undefined ? "正在用新的密钥 / 地址向 CodeZ 要模型列表，确认能用再保存…" : "正在保存…")
+    try {
+      const r = await api(a ? "save" : "add", a ? { id: a.id, ...body } : body)
+      say((a ? "已保存" : "已添加") + "。magpie 会重新载入这把密钥，模型列表过一会儿更新。", "good")
+      done(true, r.id)
+    } catch (e) {
+      say(e.message, "err")
+      save.disabled = false
+    }
+  }
+  setTimeout(() => (a ? name : key).focus(), 0)
+  return f
+}
+
+function modelsTable(a) {
+  const c = a.check
+  if (!c) return el("div", "muted", "还没检查这把密钥。点上面的「检查密钥」。")
+  if (c.status !== 200) return el("div", "err-text", `向 ${host(a.base)} 要模型列表失败：${c.status ? "HTTP " + c.status + " · " : ""}${c.error}`)
+  const t = el("table", "inner")
+  const h = el("tr")
+  for (const [x, tip] of [["模型"], ["CodeZ 支持的接口", "CodeZ 模型列表里 supported_endpoint_types 标的"], ["magpie 怎么用", "粗体：默认走的接口；其余：客户端用这些接口发来的流式请求原样转发；划掉：CodeZ 没标"], [""]]) {
+    const th = el("th"); const s = el("span", tip ? "tip" : "", x); if (tip) s.title = tip; th.append(s); h.append(th)
+  }
+  t.append(h)
+  for (const m of c.models) {
+    const tr = el("tr")
+    const types = el("span", "tags")
+    for (const ty of m.types) { const tg = el("span", "tag", TYPE_API[ty] ? API_NAMES[TYPE_API[ty]] : TYPE_NAMES[ty] || ty); tg.title = ty; types.append(tg) }
+    const uses = el("span", "tags")
+    for (const ap of ["chat", "responses", "messages", "gemini"]) {
+      const on = ap === m.uses || m.also.includes(ap)
+      const tg = el("span", "tag" + (ap === m.uses ? " own" : on ? "" : " off"), API_NAMES[ap])
+      tg.title = ap === m.uses ? "默认走这个接口" : on ? "这个接口发来的请求原样转发" : "CodeZ 没标这个接口"
+      uses.append(tg)
+    }
+    const go = el("button", "small", "测试")
+    go.onclick = (e) => { e.stopPropagation(); runTest(a.id, m.id) }
+    const td = (x) => { const d = el("td"); d.append(x); return d }
+    tr.append(td(el("span", "mono", m.id)), td(types), td(uses), td(go))
+    t.append(tr)
+  }
+  return t
+}
+
+function drawRows() {
+  const body = $("rows")
+  body.replaceChildren()
+  for (const a of last.accounts) {
+    const tr = el("tr", "acct")
+    const td = (x) => { const d = el("td"); d.append(typeof x === "string" ? document.createTextNode(x) : x); return d }
+    const nm = el("span", a.name ? "" : "faint", who(a))
+    const addr = el("span", "", host(a.base)); if (!a.choice) addr.title = "登录时没选地址，默认发往这里"
+    const fam = a.check?.models ? families(a.check.models) || "没有模型" : "—"
+    const acts = el("span", "acts")
+    const ed = el("button", "small", "编辑")
+    ed.onclick = (e) => { e.stopPropagation(); editing = editing === a.id ? null : a.id; sure = null; open.add(a.id); drawRows() }
+    const del = el("button", "small danger" + (sure === a.id ? " sure" : ""), sure === a.id ? "确认删除" : "删除")
+    del.title = "从 magpie 里删掉这把密钥（CodeZ 上的令牌不受影响）"
+    del.onclick = async (e) => {
+      e.stopPropagation()
+      if (sure !== a.id) { sure = a.id; drawRows(); setTimeout(() => { if (sure === a.id) { sure = null; drawRows() } }, 5000); return }
+      sure = null
+      try { await api("remove", { id: a.id }); say(`已删除 ${who(a)}。`, "good"); await load() } catch (er) { say(er.message, "err") }
+    }
+    acts.append(ed, del)
+    tr.append(td(nm), td(el("span", "mono", a.key)), td(addr), td(el("span", "muted", fam)), td(stateOf(a)), td(acts))
+    tr.onclick = () => { open.has(a.id) ? open.delete(a.id) : open.add(a.id); if (!open.has(a.id) && editing === a.id) editing = null; drawRows() }
+    body.append(tr)
+    if (open.has(a.id)) {
+      const d = el("tr", "detail")
+      const cellTd = el("td"); cellTd.colSpan = 6
+      if (editing === a.id) {
+        const box = el("div", "box"); box.style.marginBottom = "10px"
+        box.append(el("h2", "", "编辑 " + who(a)), form(a, async (changed) => { editing = null; if (changed) { await load(); await check(a.id) } else drawRows() }))
+        cellTd.append(box)
+      }
+      cellTd.append(modelsTable(a))
+      d.append(cellTd)
+      body.append(d)
+    }
+  }
+  if (!last.accounts.length) {
+    const tr = el("tr"); const d = el("td", "muted", "magpie 里还没有登录 CodeZ 密钥。点「添加密钥」。"); d.colSpan = 6; tr.append(d); body.append(tr)
+  }
+}
+
+function drawSpeeds() {
+  const S = last.speeds
+  const box = $("speeds")
+  if (!S) return
+  const bases = [...new Map(S.rows.map((r) => [r.base, r.label])).entries()]
+  const t = el("table")
+  const h = el("tr"); h.append(el("th", "", "密钥"))
+  for (const [, label] of bases) h.append(el("th", "", label))
+  t.append(h)
+  for (const a of last.accounts) {
+    const rs = S.rows.filter((r) => r.id === a.id)
+    if (!rs.length) continue
+    const okMs = rs.filter((r) => r.status === 200).map((r) => r.ms)
+    const best = okMs.length ? Math.min(...okMs) : null
+    const tr = el("tr")
+    tr.append(el("td", "", who(a) + "  " + a.key))
+    for (const [base] of bases) {
+      const r = rs.find((x) => x.base === base)
+      const td = el("td")
+      if (!r) { td.append(el("span", "faint", "—")); tr.append(td); continue }
+      const line = el("span", "cell")
+      if (r.status === 200) line.append(el("span", r.ms === best ? "fast" : r.ms > best * 2 ? "slow" : "", `${r.ms} ms`))
+      else { const x = el("span", "fail", r.status ? `HTTP ${r.status}` : r.error || "失败"); x.title = r.error || ""; line.append(x) }
+      if (r.current) line.append(el("span", "tag own", "当前"))
+      else if (r.status === 200) {
+        const b = el("button", "small", "改用这个")
+        b.title = `把 ${who(a)} 的请求改发到 ${r.label}`
+        b.onclick = async () => {
+          b.disabled = true
+          try { await api("save", { id: a.id, base: r.base }); say(`${who(a)} 已改用 ${r.label}。`, "good"); await load(); await speed() } catch (e) { say(e.message, "err"); b.disabled = false }
+        }
+        line.append(b)
+      }
+      td.append(line)
+      tr.append(td)
+    }
+    t.append(tr)
+  }
+  const note = el("div", "say muted", `测于 ${new Date(S.at).toLocaleTimeString()}。绿色是这把密钥最快的地址。时间是从发出请求到收到模型列表；经过 Cloudflare 的两个地址，100 秒内还没开始回应的非流式请求会被断开（524），不走流式的长请求用 api-s。`)
+  box.className = ""
+  box.replaceChildren(t, note)
+}
+
+function drawTestPick() {
+  const k = $("tKey"), m = $("tModel")
+  const keep = k.value, keepM = m.value
+  k.replaceChildren()
+  for (const a of last.accounts) { const o = el("option", "", `${who(a)} ${a.key}`); o.value = a.id; k.append(o) }
+  if (keep && last.accounts.some((a) => a.id === keep)) k.value = keep
+  const a = last.accounts.find((x) => x.id === k.value)
+  m.replaceChildren()
+  for (const x of a?.check?.models || []) { const o = el("option", "", x.id); o.value = x.id; m.append(o) }
+  if (keepM && [...m.options].some((o) => o.value === keepM)) m.value = keepM
+  $("tGo").disabled = !m.value
+  $("tNote").textContent = a && !a.check ? "先检查这把密钥" : ""
+}
+
+function drawTest() {
+  const out = $("tOut")
+  const r = tests.last
+  if (!r) { out.replaceChildren(); return }
+  const a = last.accounts.find((x) => x.id === r.id)
+  const m = a?.check?.models?.find((x) => x.id === r.model)
+  const t = el("table", "inner")
+  const h = el("tr")
+  for (const x of ["接口", "CodeZ 标了吗", "magpie 怎么用", "结果", "回复 / 报错"]) h.append(el("th", "", x))
+  t.append(h)
+  for (const x of r.results) {
+    const tr = el("tr")
+    const name = el("span", "tip", API_NAMES[x.api]); name.title = API_TIPS[x.api]
+    const listed = m ? m.types.some((ty) => TYPE_API[ty] === x.api) : null
+    const use = !m ? "—" : m.uses === x.api ? "默认走这个接口" : m.also.includes(x.api) ? "客户端用它时原样转发" : "不用"
+    const res = x.ok ? cell("ok", `${x.ms} ms`) : cell("bad", x.status ? `HTTP ${x.status}` : "失败", `${x.ms} ms`)
+    const td = (c, cls) => { const d = el("td", cls || ""); d.append(typeof c === "string" ? document.createTextNode(c) : c); return d }
+    tr.append(td(name), td(listed === null ? "—" : listed ? "标了" : "没标", listed === false ? "faint" : ""), td(use), td(res), td(x.ok ? el("span", "mono", x.text || "（空回复：思考用完了 16 个 token，接口是通的）") : el("span", "err-text", x.error), "wrap"))
+    t.append(tr)
+  }
+  const note = el("div", "say muted", `${r.model} · ${who(a || { name: "" })} · ${host(r.base)} · 测于 ${new Date(r.at).toLocaleTimeString()}`)
+  out.replaceChildren(t, note)
+}
+
+async function runTest(id, model) {
+  if (id) { $("tKey").value = id; drawTestPick() }
+  if (model) $("tModel").value = model
+  const body = { id: $("tKey").value, model: $("tModel").value }
+  if (!body.model) return
+  $("tGo").disabled = true
+  $("tNote").textContent = `正在测试 ${body.model}，最多一分钟…`
+  $("tKey").scrollIntoView({ behavior: "smooth", block: "center" })
+  try { tests.last = await api("test", body); drawTest(); await load() } catch (e) { say(e.message, "err") }
+  $("tGo").disabled = false
+  $("tNote").textContent = ""
+}
+
+function draw(s) {
+  last = s
+  const st = $("state")
+  const A = s.accounts
+  const okN = A.filter((a) => a.check?.status === 200).length
+  const badN = A.filter((a) => a.check && a.check.status !== 200).length
+  st.className = "chip " + (s.busy ? "warn" : badN ? "bad" : okN ? "ok" : "")
+  st.replaceChildren(el("span", "dot"), el("span", "", s.busy ? `正在${s.busy}…` : `${A.length} 把密钥` + (okN || badN ? ` · ${okN} 把可用` + (badN ? ` · ${badN} 把有问题` : "") : "")))
+  $("at").textContent = "更新于 " + new Date(s.at).toLocaleTimeString()
+  $("check").disabled = $("speed").disabled = !!s.busy || !A.length
+  drawRows()
+  drawSpeeds()
+  drawTestPick()
+  $("log").textContent = [...s.events].reverse().map((e) => `${new Date(e.at).toLocaleString()}  ${e.msg}`).join("\n") || "（还没有）"
+}
+
+async function load() {
+  try { draw(await api("status")) } catch (e) { say("读不到 CodeZ 面板的状态：" + e.message, "err") }
+}
+
+async function check(id) {
+  $("check").disabled = true
+  try { draw(await api("check", id ? { id } : {})) } catch (e) { say(e.message, "err") }
+  $("check").disabled = false
+}
+
+async function speed() {
+  $("speed").disabled = true
+  say("正在测速…")
+  try { await api("speed", {}); say(""); await load() } catch (e) { say(e.message, "err") }
+  $("speed").disabled = false
+}
+
+$("check").onclick = () => { say(""); check() }
+$("speed").onclick = speed
+$("add").onclick = () => {
+  const box = $("adder")
+  box.hidden = !box.hidden
+  if (!box.hidden) $("addForm").replaceChildren(form(null, async (changed, id) => { box.hidden = true; if (changed) { await load(); await check(id) } }))
+}
+$("tKey").onchange = drawTestPick
+$("tModel").onchange = () => ($("tGo").disabled = !$("tModel").value)
+$("tGo").onclick = () => runTest()
+for (const b of document.querySelectorAll("[data-open]")) b.onclick = async () => { try { await api("open", { what: b.dataset.open }); say("已在浏览器里打开。") } catch (e) { say(e.message, "err") } }
+load().then(() => check())
+</script>
+</body>
+</html>
