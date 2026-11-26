@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { apisOf, BASE, BASES, baseOf, copiesOf, createPlugin, familyOf, SLOTS, normalBase, summary, openAIModel, readsImages, rowsOf } from "./codez.js"
+import { apisOf, BASE, BASES, baseOf, createPlugin, familyOf, normalBase, summary, openAIModel, readsImages, rowsOf } from "./codez.js"
 import * as entry from "./index.js"
 
 // Entries as CodeZ's /v1/models answered on 2026-11-25, one per key group.
@@ -56,28 +56,8 @@ function fakeFetch(answer) {
 const json = (status, body) => new Response(typeof body === "string" ? body : JSON.stringify(body), { status, headers: { "content-type": "application/json" } })
 
 describe("the plugin's hooks", () => {
-  test("the entry exports only plugin functions: the first CodeZ and one per copy's slot", () => {
-    expect(Object.keys(entry).sort()).toEqual(["CodeZ", ...SLOTS.map((s) => "CodeZ" + s.slice(5))].sort())
-  })
-
-  test("a slot gives a provider only when the options have its copy", async () => {
-    expect(await entry.CodeZ2({}, {})).toEqual({})
-    expect(await entry.CodeZ3({}, { copies: [{ id: "codez2", name: "GPT" }] })).toEqual({})
-    const two = await entry.CodeZ2({}, { copies: [{ id: "codez2", name: "CodeZ GPT" }] })
-    expect(two.auth.provider).toBe("codez2")
-    expect(two.provider.id).toBe("codez2")
-    const cfg = {}
-    await two.config(cfg)
-    expect(cfg.provider.codez2.name).toBe("CodeZ GPT")
-    expect((await entry.CodeZ({}, { copies: [{ id: "codez2" }] })).auth.provider).toBe("codez")
-  })
-
-  test("copies are the slots named, once each, with a name", () => {
-    expect(copiesOf(undefined)).toEqual([])
-    expect(copiesOf({ copies: [{ id: "codez3" }, { id: "codez3", name: "x" }, { id: "codez", name: "first" }, { id: "codez10" }, null, { id: "codez9", name: "  Gemini  " }] })).toEqual([
-      { id: "codez3", name: "CodeZ 3" },
-      { id: "codez9", name: "Gemini" },
-    ])
+  test("the entry exports only the plugin function", () => {
+    expect(Object.keys(entry)).toEqual(["CodeZ"])
   })
 
   test("config declares the provider and keeps the user's own", async () => {

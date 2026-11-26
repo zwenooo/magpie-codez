@@ -18,25 +18,6 @@
 // there was a choice has none and goes to BASE.
 
 export const ID = "codez"
-
-// Copies: more CodeZ providers beside the first, each with its own id,
-// keys, models and settings (a key of each group a provider of its own).
-// magpie calls each function index.js exports, a fixed set, so there are
-// slots codez2…codez9; the plugin's options say which are in use
-// ({ copies: [{ id, name }] }), set by the panel in a CodeZ provider's
-// editor, which has magpie load the plugin again with them.
-export const SLOTS = [2, 3, 4, 5, 6, 7, 8, 9].map((n) => `${ID}${n}`)
-
-// copiesOf is the copies the options name, each slot once, with a name.
-export function copiesOf(options) {
-  const out = []
-  for (const c of Array.isArray(options?.copies) ? options.copies : []) {
-    if (!SLOTS.includes(c?.id) || out.some((x) => x.id === c.id)) continue
-    const name = typeof c.name === "string" && c.name.trim() ? c.name.trim().slice(0, 40) : `CodeZ ${c.id.slice(ID.length)}`
-    out.push({ id: c.id, name })
-  }
-  return out
-}
 export const BASE = "https://api.codezsy.com/v1"
 export const SITE = "https://codezsy.com"
 export const KEYS = "https://codezsy.com/console/token"
@@ -201,16 +182,16 @@ export function summary(base, ids) {
 
 const refused = (status) => `CodeZ refused this key (HTTP ${status}): check it at ${KEYS}, then sign in again`
 
-export function createPlugin({ fetchImpl = globalThis.fetch, id = ID, name = "CodeZ" } = {}) {
+export function createPlugin({ fetchImpl = globalThis.fetch } = {}) {
   return {
     config: async (cfg) => {
       cfg.provider ??= {}
       // ??= keeps a provider the user set up in plugins.json
-      cfg.provider[id] ??= { name, npm: CHAT, api: BASE, models: {} }
+      cfg.provider[ID] ??= { name: "CodeZ", npm: CHAT, api: BASE, models: {} }
     },
 
     auth: {
-      provider: id,
+      provider: ID,
       methods: [
         {
           type: "api",
@@ -273,7 +254,7 @@ export function createPlugin({ fetchImpl = globalThis.fetch, id = ID, name = "Co
     },
 
     provider: {
-      id,
+      id: ID,
       // each key's own models: a key belongs to one group
       async models(provider, { auth, signal } = {}) {
         if (auth?.type !== "api" || !auth.key) return provider.models
