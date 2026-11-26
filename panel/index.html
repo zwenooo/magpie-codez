@@ -6,20 +6,19 @@
 <script src="panel.js" defer></script>
 <style>
   body { margin: 0; }
-  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 4px 0; }
+  [hidden] { display: none !important; }
   .muted { opacity: .7; font-size: 12px; margin: 4px 0; }
-  input { min-width: 12em; }
+  .copy { display: flex; gap: 8px; align-items: center; margin: 6px 0; }
+  .copy code { opacity: .6; font-size: 12px; min-width: 4.5em; }
+  .copy input { flex: 1; min-width: 8em; max-width: 16em; }
+  .bar { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
   #msg:empty { display: none; }
 </style>
 </head>
 <body>
 <p class="muted" id="about"></p>
-<div class="row" id="rename" hidden>
-  <input id="name" maxlength="40">
-  <button id="saveName"></button>
-  <button id="remove"></button>
-</div>
-<div class="row"><button id="add"></button><span class="muted" id="list"></span></div>
+<div id="copies"></div>
+<div class="bar"><button id="add"></button><span class="muted" id="full"></span></div>
 <p class="muted" id="msg"></p>
 </body>
 </html>
